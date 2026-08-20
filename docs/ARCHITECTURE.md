@@ -144,18 +144,20 @@ indexed columns.
 
 ## 6. One-million-record strategy
 
-Verified on a generated 1,000,000-row corpus (432 MB database file, FTS5
-enabled) with `tools/validate-database.js --bench`:
+Verified on two generated 1,000,000-row corpora with FTS5 enabled: a minimal
+benchmark corpus (432 MB) and the richer corpus the full release APK actually
+ships (1,000,049 rows, ~550 MB). Numbers below come from the shipped one via
+`npm run db:validate`:
 
 | Query strategy | ms/query at 1M rows |
 | --- | --- |
 | Exact lookup on `question_norm` | **0.03** |
-| FTS5 `AND` retrieval, `LIMIT 25`, unranked | **0.28** |
-| FTS5 `OR` retrieval, `LIMIT 25`, unranked | **0.09** |
-| FTS5 with `ORDER BY bm25(...)` | **75** |
-| FTS5 `OR` + `ORDER BY bm25(...)` | **~1030** |
-| Indexed `LIKE` fallback | **0.10** |
-| Full pipeline (exact → AND → OR → JS ranking) | **0.14**, top-1 correct 25/25 |
+| FTS5 `AND` retrieval, `LIMIT 25`, unranked | **0.52** |
+| FTS5 `OR` retrieval, `LIMIT 25`, unranked | **0.11** |
+| Indexed `LIKE` fallback | **0.12** |
+| FTS5 with `ORDER BY bm25(...)` | **96** |
+| FTS5 `OR` + `ORDER BY bm25(...)` | **~1030** (measured on the 432 MB corpus) |
+| Full pipeline (exact → AND → OR → JS ranking) | **0.14 – 0.96** |
 
 The conclusion drove the design: **SQLite retrieves, JavaScript ranks.** Asking
 SQLite to order by `bm25` forces it to score every match before applying
@@ -309,10 +311,23 @@ storage permission.
 
 ## 18. Build strategy
 
-`npm run prepare:assets` → `cap sync android` → `gradlew assembleDebug`.
-`npm run build:apk` chains all three. Release builds use `assembleRelease` and
-are unsigned until a keystore is configured; the README documents the signing
-steps and `.gitignore` keeps keystores out of the repository.
+`npm run prepare:assets` → `npm run db:build` → `cap sync android` →
+`gradlew assembleDebug`. `npm run build:apk` chains all four;
+`npm run build:apk:full` swaps in the 1,000,000-row corpus instead of the seed.
+
+Release builds use `assembleRelease` and are unsigned until a keystore is
+configured; the README documents the signing steps and `.gitignore` keeps
+keystores out of the repository.
+
+`.github/workflows/release-apk.yml` performs the whole sequence on a GitHub
+runner — tests, video validation, corpus generation, database validation, APK
+build — and publishes the result as a Release asset on a tag push or manual
+dispatch. Packaging notes that matter at that size: the `.db` and the video
+assets are stored uncompressed (`noCompress`), because SQLite text pages barely
+deflate and inflating hundreds of megabytes costs real time at install and at
+first-run copy; and the database is copied out of the assets *before* the
+connection is opened, since `copyFromAssets` skips databases that already
+exist and opening a connection would create an empty one.
 
 ## 19. Testing strategy
 

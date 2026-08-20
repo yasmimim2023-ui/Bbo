@@ -16,7 +16,7 @@
  *   • bulk import runs in batched transactions
  */
 
-import { DATABASE_CONFIG, LANGUAGE_CONFIG } from './config.js';
+import { DATABASE_CONFIG, LANGUAGE_CONFIG, MATCHING_CONFIG } from './config.js';
 import { getPlugin, isNativePlatform, logger, normalizeText, toFtsQuery } from './utils.js';
 
 const SELECT_COLUMNS = `
@@ -265,7 +265,8 @@ export class DialogueDatabase {
   async searchFts(text, language, limit = this.config.searchLimit) {
     if (this.mode !== 'sqlite' || !this.fts5) return this.searchTokens(text, language, limit);
 
-    const strict = toFtsQuery(text, { join: 'AND' });
+    const stopWords = MATCHING_CONFIG.stopWords;
+    const strict = toFtsQuery(text, { join: 'AND', stopWords });
     if (!strict) return [];
 
     try {
@@ -273,7 +274,7 @@ export class DialogueDatabase {
       const results = rows.map((row) => ({ ...row, matchType: 'fts', rank: null }));
 
       if (results.length < this.config.ftsRecallThreshold) {
-        const loose = toFtsQuery(text, { join: 'OR' });
+        const loose = toFtsQuery(text, { join: 'OR', stopWords });
         const extra = await this.#query(SQL.fts, [loose, language, limit]);
         const seen = new Set(results.map((row) => row.id));
         for (const row of extra) {

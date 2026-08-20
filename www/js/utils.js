@@ -33,8 +33,18 @@ export function tokenize(input, stopWords = []) {
  * appear, few candidates), 'OR' the recall pass. `maxTokens` caps pathological
  * input so one very long utterance cannot build a huge expression.
  */
-export function toFtsQuery(input, { prefix = false, join = 'OR', maxTokens = 12 } = {}) {
-  const tokens = normalizeText(input).split(' ').filter(Boolean).slice(0, maxTokens);
+export function toFtsQuery(input, options = {}) {
+  const { prefix = false, join = 'OR', maxTokens = 12, stopWords = [] } = options;
+  const all = normalizeText(input).split(' ').filter(Boolean);
+
+  // Scaffolding words ("tell", "me", "about") sit in a huge share of a large
+  // corpus, so leaving them in the MATCH expression makes SQLite intersect
+  // enormous posting lists for no precision gain. They are dropped unless the
+  // whole phrase is made of them.
+  const stop = stopWords instanceof Set ? stopWords : new Set(stopWords);
+  const content = all.filter((token) => !stop.has(token));
+  const tokens = (content.length > 0 ? content : all).slice(0, maxTokens);
+
   if (tokens.length === 0) return '';
   return tokens
     .map((token) => `"${token.replace(/"/g, '""')}"${prefix ? '*' : ''}`)

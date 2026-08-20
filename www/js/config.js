@@ -187,6 +187,12 @@ export const MATCHING_CONFIG = {
     'hello', 'thanks', 'curious', 'quick', 'question', 'listen', 'more',
     'thing', 'one', 'us', 'i',
   ],
+  /**
+   * Interrogatives are kept as matchable tokens (they carry intent) but do not
+   * count as *evidence*: sharing only "what" with a question is not a reason to
+   * answer it.
+   */
+  interrogatives: ['what', 'how', 'why', 'who', 'when', 'where', 'which', 'whose', 'whom'],
   maxPriority: 100,
 };
 

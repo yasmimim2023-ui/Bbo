@@ -242,16 +242,30 @@ context. Below `confidenceThreshold` the assistant says it does not know rather
 than guessing. A row returns an **emotion** and an **animation category** — the
 engine never sees a filename.
 
+Two rules keep a large corpus from producing confident nonsense:
+
+- **Scaffolding words are stripped** from both the FTS expression and the
+  scoring. "tell me about", "quick question", "can you explain" appear in a
+  huge share of a million rows; leaving them in makes SQLite intersect enormous
+  posting lists and lets a row that merely shares the *phrasing* outrank the row
+  that shares the *subject*.
+- **An answer must share a subject word with the question.** Interrogatives do
+  not count — nearly every question contains "what" or "how" — so without this,
+  match type and priority alone could carry an unrelated row over the
+  threshold. "What is the airspeed velocity of an unladen swallow?" now falls
+  back instead of answering with a feature list.
+
 Measured on the shipped 1,000,049-row database (550 MB, FTS5 enabled — the
 same file the full release APK carries):
 
 | Step | ms/query |
 | --- | --- |
-| Exact lookup | 0.03 |
-| FTS5 AND retrieval (`LIMIT 25`, unranked) | 0.52 |
+| Exact lookup | 0.07 |
+| FTS5 AND retrieval (`LIMIT 25`, unranked) | 0.75 |
 | FTS5 OR retrieval | 0.11 |
-| Indexed `LIKE` fallback | 0.12 |
-| For comparison: `ORDER BY bm25(...)` in SQL | 95.75 |
+| Indexed `LIKE` fallback | 0.44 |
+| Full pipeline including JavaScript ranking | 2.0 – 3.0 |
+| For comparison: `ORDER BY bm25(...)` in SQL | 23 |
 
 That last row is why IRONBOX lets SQLite *retrieve* and ranks in JavaScript:
 ordering by `bm25` forces SQLite to score every match before applying the
