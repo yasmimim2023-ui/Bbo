@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#1b6ef3" />
+    <title>Bbo</title>
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body>
+    <header class="app-bar">
+      <h1>Bbo</h1>
+      <span id="backend" class="badge" title="Storage backend in use">…</span>
+    </header>
+
+    <main class="container">
+      <form id="note-form" class="card" autocomplete="off">
+        <label for="note-input">New note</label>
+        <div class="row">
+          <input
+            id="note-input"
+            name="note"
+            type="text"
+            placeholder="Write something…"
+            maxlength="200"
+            required
+          />
+          <button type="submit">Add</button>
+        </div>
+      </form>
+
+      <section class="card">
+        <div class="row row--between">
+          <h2>Notes</h2>
+          <button id="clear-all" type="button" class="ghost">Clear all</button>
+        </div>
+        <ul id="notes" class="notes"></ul>
+        <p id="empty" class="empty">No notes yet.</p>
+      </section>
+    </main>
+
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>
