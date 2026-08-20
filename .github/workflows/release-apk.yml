@@ -1,0 +1,152 @@
+name: Release APK
+
+# Builds an installable IRONBOX APK and publishes it as a GitHub Release asset.
+#
+#   • Push a tag  v1.0.0        → builds and releases automatically
+#   • Actions tab → Run workflow → choose the corpus size and tag by hand
+#
+# The full 1,000,000-row corpus produces an APK of roughly 450 MB, which is far
+# above the 100 MB Google Play limit — this artefact is meant for direct
+# installation (sideloading), not for the Play Store.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to create (e.g. v1.0.0-full)'
+        required: true
+        default: 'v1.0.0-full'
+      dialogues:
+        description: 'Number of generated dialogue rows to package'
+        required: true
+        default: '1000000'
+      prerelease:
+        description: 'Mark the release as a pre-release'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Prepare packaged assets
+        run: npm run prepare:assets
+
+      - name: Validate packaged videos
+        run: npm run videos:validate
+
+      - name: Build the dialogue database
+        env:
+          DIALOGUES: ${{ github.event.inputs.dialogues || '1000000' }}
+        run: |
+          node tools/generate-database.js --count "$DIALOGUES" --output build/corpus.jsonl
+          node tools/import-database.js
+          node tools/import-database.js --input build/corpus.jsonl --append --no-fallbacks
+          rm -f build/corpus.jsonl
+
+      - name: Validate the database
+        run: node tools/validate-database.js --bench
+
+      - name: Build the APK
+        run: |
+          npx cap sync android
+          cd android && ./gradlew assembleDebug --no-daemon
+
+      - name: Name the artefact
+        id: artefact
+        env:
+          DIALOGUES: ${{ github.event.inputs.dialogues || '1000000' }}
+        run: |
+          ROWS=$(node -e "console.log(Math.round($DIALOGUES/1000)+'k')")
+          NAME="ironbox-1.0-${ROWS}-dialogues.apk"
+          cp android/app/build/outputs/apk/debug/app-debug.apk "$NAME"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "size=$(du -h "$NAME" | cut -f1)" >> "$GITHUB_OUTPUT"
+          echo "rows=$(node -e "
+            const {DatabaseSync}=require('node:sqlite');
+            const db=new DatabaseSync('www/assets/databases/ironbox.db',{readOnly:true});
+            console.log(db.prepare('SELECT COUNT(*) AS n FROM dialogues').get().n);
+          ")" >> "$GITHUB_OUTPUT"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+          PRERELEASE: ${{ github.event.inputs.prerelease || 'false' }}
+        run: |
+          FLAGS=""
+          [ "$PRERELEASE" = "true" ] && FLAGS="--prerelease"
+          cat > notes.md <<EOF
+          # IRONBOX 1.0
+
+          Offline Android assistant with replaceable MP4 animations.
+
+          | | |
+          | --- | --- |
+          | APK | \`${{ steps.artefact.outputs.name }}\` (${{ steps.artefact.outputs.size }}) |
+          | Dialogue rows | ${{ steps.artefact.outputs.rows }} |
+          | Package | \`com.ironbox.virtualassistant\` |
+          | Requires | Android 7.0 (API 24) or newer |
+
+          ## Install
+
+          Sideload only — this APK is far larger than the Play Store limit.
+
+          \`\`\`bash
+          adb install -r ${{ steps.artefact.outputs.name }}
+          \`\`\`
+
+          Or copy it to the device and open it with a file manager, allowing
+          installation from unknown sources when prompted.
+
+          **First launch takes a while**: the packaged database is copied out of
+          the installer before the assistant answers anything. Keep roughly
+          twice the APK size free on the device.
+
+          This build is signed with the standard Android debug key, so it
+          installs directly but cannot be published to the Play Store. See the
+          README for release signing.
+
+          ## Replacing the character
+
+          Put your own MP4 files in
+          \`Android/data/com.ironbox.virtualassistant/files/IRONBOX/videos/\`
+          (or use the developer panel's **Import Videos**), then press **Reload
+          Videos**. No rebuild required.
+          EOF
+          gh release create "$TAG" "${{ steps.artefact.outputs.name }}" \
+            --title "IRONBOX 1.0 — ${{ steps.artefact.outputs.rows }} dialogues" \
+            --notes-file notes.md $FLAGS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artefact.outputs.name }}
+          path: ${{ steps.artefact.outputs.name }}
+          retention-days: 14

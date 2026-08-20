@@ -16,6 +16,17 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+
+    androidResources {
+        // Store the packaged dialogue database and the video assets uncompressed.
+        //
+        // The .db is copied out of the assets on first run by
+        // @capacitor-community/sqlite. Deflating a multi-hundred-megabyte file
+        // buys nothing (SQLite pages of text compress poorly once packed) and
+        // forces the whole stream to be inflated at install and at copy time.
+        // MP4/WebM are already compressed, so the same applies.
+        noCompress += ['db', 'mp4', 'm4v', 'webm']
+    }
     buildTypes {
         release {
             minifyEnabled false

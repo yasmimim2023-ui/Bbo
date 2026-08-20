@@ -167,11 +167,25 @@ export const MATCHING_CONFIG = {
     priority: 0.1,
     intent: 0.1,
   },
-  /** Words stripped before matching (English defaults). */
+  /**
+   * Words stripped before matching (English defaults).
+   *
+   * Beyond ordinary stop words this covers the scaffolding of a spoken
+   * question — "tell me about …", "can you explain …", "quick question …".
+   * Leaving them in lets a row that merely shares the phrasing outscore the
+   * row that shares the *subject*, which is how "tell me about holograms"
+   * ends up answered with a fact about battery life. Interrogatives
+   * (what/how/why/who/when/where) are deliberately kept: they carry intent.
+   */
   stopWords: [
     'a', 'an', 'the', 'is', 'are', 'am', 'was', 'were', 'be', 'been',
     'do', 'does', 'did', 'to', 'of', 'in', 'on', 'at', 'for', 'with',
     'and', 'or', 'but', 'if', 'it', 'this', 'that', 'please', 'you',
+    'me', 'my', 'your', 'about', 'can', 'could', 'would', 'should',
+    'tell', 'explain', 'give', 'say', 'know', 'think', 'want', 'need',
+    'let', 'anything', 'something', 'really', 'just', 'ok', 'so', 'hey',
+    'hello', 'thanks', 'curious', 'quick', 'question', 'listen', 'more',
+    'thing', 'one', 'us', 'i',
   ],
   maxPriority: 100,
 };
