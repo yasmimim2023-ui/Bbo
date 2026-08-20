@@ -1,0 +1,121 @@
+/* IRONBOX 1.0 — the character stage.
+   Original holographic-projection styling: a lit column, scanlines and a
+   pedestal glow. All of it is CSS, so it works with any video asset and with
+   no video at all. */
+
+.stage {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.stage__glow {
+  background:
+    radial-gradient(60% 40% at 50% 88%, rgba(79, 216, 255, 0.35) 0%, rgba(79, 216, 255, 0) 70%),
+    radial-gradient(75% 60% at 50% 12%, rgba(122, 247, 210, 0.14) 0%, rgba(4, 7, 15, 0) 70%);
+  inset: 0;
+  position: absolute;
+  z-index: 0;
+}
+
+/* The two cross-fading video layers occupy the same box. */
+.stage__layer,
+.stage__fallback {
+  height: 100%;
+  inset: 0;
+  object-fit: cover;
+  opacity: 0;
+  position: absolute;
+  transition: opacity 220ms ease;
+  width: 100%;
+  z-index: 1;
+}
+
+.stage__layer.is-visible,
+.stage__fallback.is-visible {
+  opacity: 1;
+}
+
+/* A subtle projection tint applied on top of whatever the videos contain. */
+.stage__layer {
+  filter: saturate(1.05) contrast(1.03);
+}
+
+.stage__scanlines {
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.045) 0px,
+    rgba(255, 255, 255, 0.045) 1px,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(0, 0, 0, 0) 4px
+  );
+  inset: 0;
+  mix-blend-mode: soft-light;
+  opacity: 0.55;
+  pointer-events: none;
+  position: absolute;
+  z-index: 2;
+}
+
+.stage__pedestal {
+  background:
+    radial-gradient(closest-side, rgba(79, 216, 255, 0.55) 0%, rgba(79, 216, 255, 0) 100%);
+  bottom: -14%;
+  filter: blur(2px);
+  height: 26%;
+  left: 50%;
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(-50%);
+  width: 78%;
+  z-index: 2;
+}
+
+.caption {
+  background: rgba(4, 7, 15, 0.62);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  bottom: 14px;
+  color: var(--text);
+  font-size: 0.9rem;
+  left: 50%;
+  margin: 0;
+  max-width: min(92%, 560px);
+  padding: 10px 14px;
+  position: absolute;
+  text-align: center;
+  transform: translateX(-50%);
+  transition: opacity 200ms ease;
+  z-index: 3;
+}
+
+.caption:empty {
+  opacity: 0;
+}
+
+/* State-driven tinting of the whole stage. Categories, never characters. */
+.stage[data-state='LISTENING'] .stage__glow {
+  background:
+    radial-gradient(60% 40% at 50% 88%, rgba(122, 247, 210, 0.4) 0%, rgba(122, 247, 210, 0) 70%),
+    radial-gradient(75% 60% at 50% 12%, rgba(122, 247, 210, 0.16) 0%, rgba(4, 7, 15, 0) 70%);
+}
+
+.stage[data-state='PROCESSING'] .stage__glow,
+.stage[data-state='THINKING'] .stage__glow {
+  background:
+    radial-gradient(60% 40% at 50% 88%, rgba(255, 207, 92, 0.32) 0%, rgba(255, 207, 92, 0) 70%),
+    radial-gradient(75% 60% at 50% 12%, rgba(255, 207, 92, 0.12) 0%, rgba(4, 7, 15, 0) 70%);
+}
+
+.stage[data-state='ERROR'] .stage__glow {
+  background:
+    radial-gradient(60% 40% at 50% 88%, rgba(255, 107, 125, 0.35) 0%, rgba(255, 107, 125, 0) 70%),
+    radial-gradient(75% 60% at 50% 12%, rgba(255, 107, 125, 0.12) 0%, rgba(4, 7, 15, 0) 70%);
+}
+
+.stage[data-state='SLEEPING'] .stage__layer,
+.stage[data-state='SLEEPING'] .stage__fallback {
+  filter: saturate(0.5) brightness(0.6);
+}

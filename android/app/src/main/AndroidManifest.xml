@@ -7,6 +7,8 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
+        android:hardwareAccelerated="true"
+        android:largeHeap="false"
         android:theme="@style/AppTheme">
 
         <activity
@@ -37,5 +39,32 @@
 
     <!-- Permissions -->
 
+    <!-- Capacitor's local web server, which also serves videos from
+         app-specific external storage to the WebView. -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Push-to-talk. Requested at runtime the first time the user holds the
+         microphone button; also contributed by the speech-recognition plugin. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!--
+      No storage permission is declared on purpose.
+
+      IRONBOX keeps its videos in app-specific external storage
+      (Android/data/com.ironbox.virtualassistant/files/IRONBOX/videos), which an
+      app may read and write without any permission on every supported Android
+      version. Broad media/storage permissions would only be needed to reach
+      shared folders, which IRONBOX does not use; the in-app "Import Videos"
+      picker covers that case instead.
+    -->
+
+    <!-- The device speech and TTS services this app talks to. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
 </manifest>

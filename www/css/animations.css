@@ -1,0 +1,88 @@
+/* IRONBOX 1.0 — motion.
+   Everything here is decorative chrome around the video layer, so it keeps
+   working whichever character's assets are installed. */
+
+@keyframes ironbox-pulse {
+  0%,
+  100% { transform: scale(1); opacity: 0.55; }
+  50%  { transform: scale(1.12); opacity: 0.95; }
+}
+
+@keyframes ironbox-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ironbox-flicker {
+  0%, 100% { opacity: 0.55; }
+  42%      { opacity: 0.42; }
+  47%      { opacity: 0.72; }
+  62%      { opacity: 0.5; }
+}
+
+@keyframes ironbox-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ironbox-listen {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(122, 247, 210, 0.5); }
+  70%      { box-shadow: 0 0 0 16px rgba(122, 247, 210, 0); }
+}
+
+.stage__scanlines {
+  animation: ironbox-flicker 6.5s ease-in-out infinite;
+}
+
+.stage__pedestal {
+  animation: ironbox-pulse 4.2s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.transcript li {
+  animation: ironbox-rise 220ms ease both;
+}
+
+/* Push-to-talk feedback. */
+.talk.is-listening {
+  animation: ironbox-listen 1.35s ease-out infinite;
+  background: rgba(122, 247, 210, 0.2);
+  border-color: rgba(122, 247, 210, 0.5);
+  color: var(--accent-strong);
+}
+
+.talk__ring {
+  border: 1px solid rgba(79, 216, 255, 0.35);
+  border-radius: 50%;
+  inset: -5px;
+  position: absolute;
+}
+
+.talk.is-listening .talk__ring {
+  animation: ironbox-pulse 1.35s ease-in-out infinite;
+}
+
+/* Boot spinner. */
+.boot__ring {
+  animation: ironbox-spin 1.1s linear infinite;
+  border: 2px solid rgba(79, 216, 255, 0.18);
+  border-radius: 50%;
+  border-top-color: var(--accent);
+  height: 46px;
+  width: 46px;
+}
+
+/* Speaking: a gentle breathing of the projection. */
+.stage[data-state='SPEAKING'] .stage__glow {
+  animation: ironbox-pulse 2.1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage__scanlines,
+  .stage__pedestal,
+  .stage[data-state='SPEAKING'] .stage__glow,
+  .talk.is-listening,
+  .talk.is-listening .talk__ring,
+  .transcript li {
+    animation: none;
+  }
+}

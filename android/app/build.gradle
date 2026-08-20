@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "com.bbo.app"
+    namespace = "com.ironbox.virtualassistant"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.bbo.app"
+        applicationId "com.ironbox.virtualassistant"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
