@@ -84,65 +84,84 @@ jobs:
         env:
           DIALOGUES: ${{ github.event.inputs.dialogues || '1000000' }}
         run: |
-          ROWS=$(node -e "console.log(Math.round($DIALOGUES/1000)+'k')")
-          NAME="ironbox-1.0-${ROWS}-dialogues.apk"
+          set -euo pipefail
+          LABEL=$(node -e 'const n = Number(process.argv[1]); console.log(n >= 1e6 ? `${+(n / 1e6).toFixed(2)}M` : `${Math.round(n / 1000)}k`);' "$DIALOGUES")
+          NAME="ironbox-1.0-${LABEL}-dialogues.apk"
           cp android/app/build/outputs/apk/debug/app-debug.apk "$NAME"
-          echo "name=$NAME" >> "$GITHUB_OUTPUT"
-          echo "size=$(du -h "$NAME" | cut -f1)" >> "$GITHUB_OUTPUT"
-          echo "rows=$(node -e "
-            const {DatabaseSync}=require('node:sqlite');
-            const db=new DatabaseSync('www/assets/databases/ironbox.db',{readOnly:true});
-            console.log(db.prepare('SELECT COUNT(*) AS n FROM dialogues').get().n);
-          ")" >> "$GITHUB_OUTPUT"
+
+          ROWS=$(node --input-type=module -e 'import {DatabaseSync} from "node:sqlite"; const db = new DatabaseSync("www/assets/databases/ironbox.db", { readOnly: true }); console.log(db.prepare("SELECT COUNT(*) AS n FROM dialogues").get().n.toLocaleString("en-US"));' 2>/dev/null)
+
+          {
+            echo "name=$NAME"
+            echo "size=$(du -h "$NAME" | cut -f1)"
+            echo "rows=$ROWS"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.inputs.tag || github.ref_name }}
           PRERELEASE: ${{ github.event.inputs.prerelease || 'false' }}
+          APK: ${{ steps.artefact.outputs.name }}
+          APK_SIZE: ${{ steps.artefact.outputs.size }}
+          ROWS: ${{ steps.artefact.outputs.rows }}
         run: |
-          FLAGS=""
-          [ "$PRERELEASE" = "true" ] && FLAGS="--prerelease"
-          cat > notes.md <<EOF
+          set -euo pipefail
+
+          # Quoted heredoc: the notes are written verbatim, so backticks and $
+          # in the markdown are never interpreted by the shell. Placeholders are
+          # substituted afterwards with envsubst-style sed on named variables.
+          cat > notes.md <<'EOF'
           # IRONBOX 1.0
 
-          Offline Android assistant with replaceable MP4 animations.
+          Offline Android assistant with replaceable MP4 animations, a SQLite +
+          FTS5 dialogue database and push-to-talk voice interaction.
 
           | | |
           | --- | --- |
-          | APK | \`${{ steps.artefact.outputs.name }}\` (${{ steps.artefact.outputs.size }}) |
-          | Dialogue rows | ${{ steps.artefact.outputs.rows }} |
-          | Package | \`com.ironbox.virtualassistant\` |
+          | APK | `__APK__` (__APK_SIZE__) |
+          | Dialogue rows | __ROWS__ |
+          | Package | `com.ironbox.virtualassistant` |
           | Requires | Android 7.0 (API 24) or newer |
 
           ## Install
 
-          Sideload only — this APK is far larger than the Play Store limit.
+          Sideload only — this APK is far above the Play Store size limit.
 
-          \`\`\`bash
-          adb install -r ${{ steps.artefact.outputs.name }}
-          \`\`\`
+          ```
+          adb install -r __APK__
+          ```
 
           Or copy it to the device and open it with a file manager, allowing
           installation from unknown sources when prompted.
 
-          **First launch takes a while**: the packaged database is copied out of
-          the installer before the assistant answers anything. Keep roughly
-          twice the APK size free on the device.
+          **First launch takes a while.** The packaged dialogue database is
+          copied out of the installer before the assistant answers anything, so
+          keep roughly twice the APK size free on the device.
 
-          This build is signed with the standard Android debug key, so it
-          installs directly but cannot be published to the Play Store. See the
-          README for release signing.
+          This build is signed with the standard Android debug key: it installs
+          directly, but cannot be published to the Play Store. See the README
+          for release signing.
 
           ## Replacing the character
 
           Put your own MP4 files in
-          \`Android/data/com.ironbox.virtualassistant/files/IRONBOX/videos/\`
-          (or use the developer panel's **Import Videos**), then press **Reload
-          Videos**. No rebuild required.
+
+          ```
+          Android/data/com.ironbox.virtualassistant/files/IRONBOX/videos/
+          ```
+
+          or use the developer panel (gear icon) → **Import Videos**, then press
+          **Reload Videos**. No code change and no rebuild.
           EOF
-          gh release create "$TAG" "${{ steps.artefact.outputs.name }}" \
-            --title "IRONBOX 1.0 — ${{ steps.artefact.outputs.rows }} dialogues" \
+
+          sed -i "s|__APK__|$APK|g; s|__APK_SIZE__|$APK_SIZE|g; s|__ROWS__|$ROWS|g" notes.md
+
+          FLAGS=""
+          if [ "$PRERELEASE" = "true" ]; then FLAGS="--prerelease"; fi
+
+          gh release create "$TAG" "$APK" \
+            --title "IRONBOX 1.0 — $ROWS dialogues" \
             --notes-file notes.md $FLAGS
 
       - uses: actions/upload-artifact@v4
