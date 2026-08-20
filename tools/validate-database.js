@@ -20,6 +20,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 import { normalizeText } from './import-database.js';
+import { MATCHING_CONFIG } from '../www/js/config.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -152,13 +153,16 @@ function main() {
          FROM dialogues_fts JOIN dialogues d ON d.id = dialogues_fts.rowid
          WHERE dialogues_fts MATCH ? AND d.language = ? LIMIT 25`,
       );
-      const expression = (question, join) =>
-        normalizeText(question)
-          .split(' ')
-          .filter(Boolean)
+      // Same expression the app builds: content words only (see utils.toFtsQuery).
+      const stop = new Set(MATCHING_CONFIG.stopWords);
+      const expression = (question, join) => {
+        const all = normalizeText(question).split(' ').filter(Boolean);
+        const content = all.filter((token) => !stop.has(token));
+        return (content.length > 0 ? content : all)
           .slice(0, 12)
           .map((token) => `"${token}"`)
           .join(` ${join} `);
+      };
 
       time('FTS5 AND retrieval', (probe) => retrieve.all(expression(probe.question, 'AND'), probe.language));
       time('FTS5 OR retrieval', (probe) => retrieve.all(expression(probe.question, 'OR'), probe.language));

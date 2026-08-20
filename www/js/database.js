@@ -16,7 +16,7 @@
  *   • bulk import runs in batched transactions
  */
 
-import { DATABASE_CONFIG, LANGUAGE_CONFIG } from './config.js';
+import { DATABASE_CONFIG, LANGUAGE_CONFIG, MATCHING_CONFIG } from './config.js';
 import { getPlugin, isNativePlatform, logger, normalizeText, toFtsQuery } from './utils.js';
 
 const SELECT_COLUMNS = `
@@ -126,6 +126,18 @@ export class DialogueDatabase {
   }
 
   async #initializeNative() {
+    // Order matters: copyFromAssets skips any database that already exists, and
+    // opening a connection creates an empty file. Copying first is what makes a
+    // packaged corpus actually reach the device.
+    try {
+      await this.plugin.copyFromAssets({ overwrite: false });
+      this.log.info('database', 'Copied packaged database from assets');
+    } catch (error) {
+      // Expected when no database is packaged, and on every launch after the
+      // first, when the file already exists.
+      this.log.info('database', 'No packaged database copied (already present or not shipped)');
+    }
+
     await this.plugin.createConnection({
       database: this.config.name,
       encrypted: false,
@@ -134,15 +146,6 @@ export class DialogueDatabase {
       readonly: false,
     });
     await this.plugin.open(this.dbArgs);
-
-    // A starter database may be shipped in www/assets/databases/. When absent
-    // the plugin throws; that is an expected, non-fatal situation.
-    try {
-      await this.plugin.copyFromAssets({ overwrite: false });
-      this.log.info('database', 'Copied starter database from assets');
-    } catch (error) {
-      this.log.info('database', 'No packaged starter database (this is fine)');
-    }
 
     const schema = await this.#fetchText('data/schema.sql');
     await this.plugin.execute({ ...this.dbArgs, statements: schema, transaction: false });
@@ -262,7 +265,8 @@ export class DialogueDatabase {
   async searchFts(text, language, limit = this.config.searchLimit) {
     if (this.mode !== 'sqlite' || !this.fts5) return this.searchTokens(text, language, limit);
 
-    const strict = toFtsQuery(text, { join: 'AND' });
+    const stopWords = MATCHING_CONFIG.stopWords;
+    const strict = toFtsQuery(text, { join: 'AND', stopWords });
     if (!strict) return [];
 
     try {
@@ -270,7 +274,7 @@ export class DialogueDatabase {
       const results = rows.map((row) => ({ ...row, matchType: 'fts', rank: null }));
 
       if (results.length < this.config.ftsRecallThreshold) {
-        const loose = toFtsQuery(text, { join: 'OR' });
+        const loose = toFtsQuery(text, { join: 'OR', stopWords });
         const extra = await this.#query(SQL.fts, [loose, language, limit]);
         const seen = new Set(results.map((row) => row.id));
         for (const row of extra) {

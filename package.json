@@ -18,7 +18,9 @@
     "db:validate": "node tools/validate-database.js --bench",
     "videos:validate": "node tools/validate-videos.js",
     "videos:placeholders": "bash tools/make-placeholder-videos.sh",
-    "verify": "npm run test && npm run db:validate && npm run videos:validate"
+    "verify": "npm run test && npm run db:validate && npm run videos:validate",
+    "db:build:full": "node tools/generate-database.js --count 1000000 --output build/corpus.jsonl && node tools/import-database.js && node tools/import-database.js --input build/corpus.jsonl --append --no-fallbacks",
+    "build:apk:full": "npm run prepare:assets && npm run db:build:full && cap sync android && cd android && ./gradlew assembleDebug"
   },
   "repository": {
     "type": "git",

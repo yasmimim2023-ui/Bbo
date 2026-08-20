@@ -73,7 +73,20 @@ export function scoreCandidate(query, row, options = {}) {
     raw += contextHit * contextBoost;
   }
 
-  const score = clamp(raw / maximum);
+  // No shared subject word means no evidence: without this, match type and
+  // priority alone can push an unrelated row over the answer threshold — which
+  // is how "what is the airspeed velocity of an unladen swallow" once drew a
+  // confident answer about the assistant's features. Interrogatives do not
+  // count, since "what" is shared by most questions ever asked.
+  const interrogatives = new Set(config.interrogatives ?? []);
+  const evidenceTokens = queryTokens.filter((token) => !interrogatives.has(token));
+  const searchable = new Set(searchableTokens);
+  const hasLexicalEvidence =
+    intentHit === 1 ||
+    (evidenceTokens.length > 0
+      ? evidenceTokens.some((token) => searchable.has(token))
+      : overlap > 0 || covered > 0);
+  const score = hasLexicalEvidence ? clamp(raw / maximum) : 0;
 
   return {
     score,

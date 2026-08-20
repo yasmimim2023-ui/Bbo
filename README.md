@@ -33,6 +33,7 @@ keeps a registered filename or is declared in an external manifest.
 - [Project layout](#project-layout)
 - [Commands](#commands)
 - [Building the APK](#building-the-apk)
+- [Releases](#releases)
 - [Testing](#testing)
 - [What was verified, and how](#what-was-verified-and-how)
 - [Acceptance criteria](#acceptance-criteria)
@@ -241,25 +242,38 @@ context. Below `confidenceThreshold` the assistant says it does not know rather
 than guessing. A row returns an **emotion** and an **animation category** — the
 engine never sees a filename.
 
-Measured on a generated 1,000,000-row corpus (432 MB, FTS5 enabled):
+Two rules keep a large corpus from producing confident nonsense:
+
+- **Scaffolding words are stripped** from both the FTS expression and the
+  scoring. "tell me about", "quick question", "can you explain" appear in a
+  huge share of a million rows; leaving them in makes SQLite intersect enormous
+  posting lists and lets a row that merely shares the *phrasing* outrank the row
+  that shares the *subject*.
+- **An answer must share a subject word with the question.** Interrogatives do
+  not count — nearly every question contains "what" or "how" — so without this,
+  match type and priority alone could carry an unrelated row over the
+  threshold. "What is the airspeed velocity of an unladen swallow?" now falls
+  back instead of answering with a feature list.
+
+Measured on the shipped 1,000,049-row database (550 MB, FTS5 enabled — the
+same file the full release APK carries):
 
 | Step | ms/query |
 | --- | --- |
-| Exact lookup | 0.03 |
-| FTS5 AND retrieval (`LIMIT 25`, unranked) | 0.28 |
-| FTS5 OR retrieval | 0.09 |
-| Indexed `LIKE` fallback | 0.10 |
-| **Full pipeline incl. JavaScript ranking** | **0.14** (top-1 correct 25/25) |
-| For comparison: `ORDER BY bm25(...)` in SQL | 75 – 1030 |
+| Exact lookup | 0.07 |
+| FTS5 AND retrieval (`LIMIT 25`, unranked) | 0.75 |
+| FTS5 OR retrieval | 0.11 |
+| Indexed `LIKE` fallback | 0.44 |
+| Full pipeline including JavaScript ranking | 2.0 – 3.0 |
+| For comparison: `ORDER BY bm25(...)` in SQL | 23 |
 
 That last row is why IRONBOX lets SQLite *retrieve* and ranks in JavaScript:
 ordering by `bm25` forces SQLite to score every match before applying the
 `LIMIT`. Reproduce it yourself:
 
 ```bash
-npm run db:generate -- --count 1000000 --output build/corpus.jsonl
-node tools/import-database.js --input build/corpus.jsonl --output build/ironbox-1m.db
-node tools/validate-database.js --db build/ironbox-1m.db --bench
+npm run db:build:full     # 1,000,000 generated rows + the 49 curated ones
+npm run db:validate       # the table above
 ```
 
 **FTS5 is probed, not assumed.** The app tries to create the index at startup;
@@ -268,17 +282,60 @@ if the device's SQLite build lacks FTS5, it logs that and falls back to indexed
 
 ## Shipping a large database
 
-Two ways to get a big corpus onto the device:
+Two ways to get a large corpus onto the device.
 
-**Packaged.** Put the built file at `www/assets/databases/ironbox.db`;
-`@capacitor-community/sqlite` copies it out of the APK on first run (a file
-named `ironbox.db` is installed as `ironboxSQLite.db`, which the connection
-named `ironbox` opens). Simple, but a million rows adds ~430 MB to the APK.
+**Packaged in the APK.** Put the built file at
+`www/assets/databases/ironbox.db`; `@capacitor-community/sqlite` copies it out
+of the installer on first run (a file named `ironbox.db` is installed as
+`ironboxSQLite.db`, which the connection named `ironbox` opens). The copy
+happens *before* the connection is opened — otherwise an empty database would
+already exist and the packaged one would be silently skipped.
 
-**Imported.** Ship the small seed and import a `.jsonl`/`.csv`/`.json` corpus
-in-app: developer panel → **Import Dialogues…**. Rows are inserted in batched
-transactions of `importBatchSize`. This keeps the APK small and is the
-recommended path at scale.
+```bash
+npm run build:apk:full    # 1,000,000 generated rows + 49 curated → APK
+```
+
+Real numbers for that build:
+
+| | |
+| --- | --- |
+| Rows | 1,000,049 (1,000,000 generated + 49 curated, curated at higher priority) |
+| Database | 550 MB, FTS5 enabled |
+| Import time | ~10 minutes (batched transactions, then `optimize`/`ANALYZE`/`VACUUM`) |
+| APK | ~565 MB |
+
+The `.db` and the video assets are stored uncompressed in the APK
+(`noCompress` in `android/app/build.gradle`): SQLite pages of text barely
+deflate, and inflating hundreds of megabytes at install and copy time costs
+real seconds for nothing.
+
+Be aware of what a corpus that size means in practice:
+
+- **Sideload only.** Google Play caps an APK at 100 MB (200 MB for an AAB base
+  module), so a 565 MB build cannot be published there.
+- **Roughly 1.2 GB of device storage** while the app is installed: the
+  installer's copy plus the extracted database.
+- **First launch takes a while** — the app copies 550 MB out of its own assets
+  before answering anything.
+
+**Imported on the device.** Ship the small seed instead and import a
+`.jsonl` / `.csv` / `.json` corpus from the developer panel → **Import
+Dialogues…**. Rows go in through batched transactions. This keeps the APK
+inside normal limits and is the better option for most people.
+
+The generated corpus itself is combinatorial: 10 openers × 26 phrasings × 143
+topics × 9 aspects × 4 politeness forms = **1,338,480 unique questions**, each
+row index mapping to exactly one combination, so a million rows contain a
+million distinct questions and the same `--seed` reproduces the corpus byte for
+byte. Topic is the fastest-varying axis, which means a corpus truncated at
+*any* size still covers all 143 topics evenly — get that ordering wrong and the
+tail of the topic list silently disappears, so `tests/corpus.test.js` asserts
+it. Topics carry their own category, intent and emotional colour, and answers
+are composed from per-topic facts. These lines are *generated*, not
+hand-written — they give broad on-topic coverage and exercise the
+million-record architecture for real; a production assistant should also carry
+a curated corpus like `database/seed.csv`, which is imported first and at
+higher priority so real questions get real answers.
 
 ## Speech recognition and TTS — what is actually guaranteed
 
@@ -352,7 +409,9 @@ tests/    animation · state · matching · dialogue · database
 | `npm run setup:android` | installs the Android SDK packages and writes `local.properties` |
 | `npm run prepare:assets` | regenerates the packaged manifest, seed JSON and schema copies |
 | `npm run db:build` | builds `www/assets/databases/ironbox.db` from `database/seed.csv` |
-| `npm run db:generate` | writes a synthetic JSONL corpus (`-- --count 1000000`) |
+| `npm run db:generate` | writes a generated JSONL corpus (`-- --count 1000000`) |
+| `npm run db:build:full` | 1,000,000 generated rows + the curated seed into the packaged database |
+| `npm run build:apk:full` | the same, then the APK (~565 MB, sideload only) |
 | `npm run db:validate` | schema/index/FTS checks plus the query benchmark |
 | `npm run videos:validate` | naming, codec, manifest and coverage checks |
 | `npm run videos:placeholders` | regenerates the placeholder clips (needs ffmpeg) |
@@ -403,6 +462,33 @@ keyPassword=…
 
 Then add a `signingConfigs` block reading that file in `android/app/build.gradle`
 and point `buildTypes.release` at it.
+
+## Releases
+
+`.github/workflows/release-apk.yml` builds an installable APK on a GitHub
+runner and publishes it as a Release asset. Two ways to trigger it:
+
+- push a tag: `git tag v1.0.0 && git push origin v1.0.0`
+- or **Actions → Release APK → Run workflow**, choosing the tag, the number of
+  dialogue rows (default `1000000`) and whether it is a pre-release.
+
+The workflow runs the unit tests, validates the videos, builds and validates
+the database, builds the APK, and attaches it to the Release with install
+notes. It needs no secrets — the built-in `GITHUB_TOKEN` is enough.
+
+Released APKs are signed with the standard Android **debug** key, so they
+install directly by sideloading but cannot go to the Play Store. To ship a
+Play-signed build, configure a keystore (see
+[Release signing](#release-signing)) and switch the workflow's Gradle task to
+`assembleRelease`.
+
+To produce the same artefact locally:
+
+```bash
+npm run build:apk:full
+# → android/app/build/outputs/apk/debug/app-debug.apk
+adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+```
 
 ## Testing
 

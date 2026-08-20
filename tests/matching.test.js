@@ -97,6 +97,21 @@ test('scores stay inside 0..1', () => {
   assert.ok(extreme.score <= 1 && extreme.score >= 0, `score out of range: ${extreme.score}`);
 });
 
+test('a row sharing no content word with the question scores zero', () => {
+  const { score } = scoreCandidate(
+    'what is the airspeed velocity of an unladen swallow',
+    row({
+      question: 'what can you do',
+      keywords: 'features abilities help',
+      intent: null,
+      priority: 100,
+      matchType: 'fts',
+      rank: -1,
+    }),
+  );
+  assert.equal(score, 0, 'match type and priority alone are not evidence');
+});
+
 test('empty input produces no confidence', () => {
   const { score } = scoreCandidate('', row());
   assert.ok(score < DATABASE_CONFIG.confidenceThreshold);
