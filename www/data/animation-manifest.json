@@ -1,0 +1,115 @@
+{
+  "angry": {
+    "videos": [
+      {
+        "file": "angry_01.mp4",
+        "weight": 100,
+        "loop": false
+      }
+    ]
+  },
+  "confused": {
+    "videos": [
+      {
+        "file": "confused_01.mp4",
+        "weight": 100,
+        "loop": false
+      }
+    ]
+  },
+  "error": {
+    "videos": [
+      {
+        "file": "error.mp4",
+        "weight": 100,
+        "loop": false
+      }
+    ]
+  },
+  "fallback": {
+    "videos": [
+      {
+        "file": "fallback.mp4",
+        "weight": 100,
+        "loop": true
+      }
+    ]
+  },
+  "happy": {
+    "videos": [
+      {
+        "file": "happy_01.mp4",
+        "weight": 100,
+        "loop": false
+      },
+      {
+        "file": "happy_02.mp4",
+        "weight": 100,
+        "loop": false
+      }
+    ]
+  },
+  "idle": {
+    "videos": [
+      {
+        "file": "idle.mp4",
+        "weight": 100,
+        "loop": true
+      }
+    ]
+  },
+  "listening": {
+    "videos": [
+      {
+        "file": "listening.mp4",
+        "weight": 100,
+        "loop": true
+      }
+    ]
+  },
+  "sad": {
+    "videos": [
+      {
+        "file": "sad_01.mp4",
+        "weight": 100,
+        "loop": false
+      }
+    ]
+  },
+  "sleeping": {
+    "videos": [
+      {
+        "file": "sleeping.mp4",
+        "weight": 100,
+        "loop": true
+      }
+    ]
+  },
+  "speaking": {
+    "videos": [
+      {
+        "file": "speaking.mp4",
+        "weight": 100,
+        "loop": true
+      }
+    ]
+  },
+  "surprised": {
+    "videos": [
+      {
+        "file": "surprised_01.mp4",
+        "weight": 100,
+        "loop": false
+      }
+    ]
+  },
+  "thinking": {
+    "videos": [
+      {
+        "file": "thinking.mp4",
+        "weight": 100,
+        "loop": true
+      }
+    ]
+  }
+}

@@ -1,4 +1,4 @@
-package com.bbo.app;
+package com.ironbox.virtualassistant;
 
 import com.getcapacitor.BridgeActivity;
 

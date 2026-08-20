@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Bbo</string>
-    <string name="title_activity_main">Bbo</string>
-    <string name="package_name">com.bbo.app</string>
-    <string name="custom_url_scheme">com.bbo.app</string>
+    <string name="app_name">IRONBOX 1.0</string>
+    <string name="title_activity_main">IRONBOX 1.0</string>
+    <string name="package_name">com.ironbox.virtualassistant</string>
+    <string name="custom_url_scheme">com.ironbox.virtualassistant</string>
 </resources>

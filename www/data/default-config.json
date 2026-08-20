@@ -1,0 +1,34 @@
+{
+  "_comment": [
+    "Packaged runtime overrides for www/js/config.js.",
+    "Each key maps to a config section; values are merged over the defaults at",
+    "startup. A file with the same shape named ironbox-config.json placed in the",
+    "external IRONBOX directory is applied after this one, so a device can be",
+    "retuned without rebuilding the APK."
+  ],
+  "assistant": {
+    "name": "IRONBOX",
+    "version": "1.0"
+  },
+  "personality": {
+    "tone": "friendly",
+    "enthusiasm": 0.7,
+    "humor": 0.3,
+    "politeness": 0.9,
+    "curiosity": 0.6
+  },
+  "language": {
+    "primary": "en-US"
+  },
+  "video": {
+    "preloadCacheSize": 6,
+    "crossfadeMs": 220
+  },
+  "database": {
+    "searchLimit": 25,
+    "confidenceThreshold": 0.34
+  },
+  "conversation": {
+    "CONVERSATION_MEMORY": 10
+  }
+}
